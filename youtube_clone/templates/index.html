@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Timelapse Tube</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Timelapse Tube</h1>
+    </header>
+    <main>
+      <section id="player-section">
+        <video id="player" controls preload="metadata" width="800">
+          <source id="player-src" src="" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+        <div id="current-duration">Duration: —</div>
+        <h2 id="now-playing">No video selected</h2>
+        <div id="meta-editor">
+          <h3>Video details</h3>
+          <div>
+            <label>Friendly name</label>
+            <input id="meta-name" type="text" placeholder="Short friendly title" />
+          </div>
+          <div>
+            <label>Description</label>
+            <textarea id="meta-desc" rows="3" placeholder="Short description"></textarea>
+          </div>
+          <div>
+            <label>Makerworld link</label>
+            <div class="meta-link-row">
+              <input id="meta-link" type="text" placeholder="https://maker.world/…" />
+              <button id="meta-open" type="button">Open</button>
+            </div>
+          </div>
+          <div style="margin-top:8px; display:flex; gap:12px; align-items:center;">
+            <button id="meta-save">Save</button>
+            <span id="meta-status" class="meta-status"></span>
+          </div>
+        </div>
+      </section>
+
+      <section id="list-section">
+        <h3>Videos</h3>
+        <div id="controls">
+          <label for="sort-select">Sort:</label>
+          <select id="sort-select">
+            <option value="name">Name</option>
+            <option value="date">Date</option>
+            <option value="size">Size</option>
+          </select>
+          <select id="order-select">
+            <option value="desc">Desc</option>
+            <option value="asc">Asc</option>
+          </select>
+        </div>
+        <ul id="video-list"></ul>
+      </section>
+    </main>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
