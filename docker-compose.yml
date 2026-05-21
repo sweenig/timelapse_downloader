@@ -1,0 +1,26 @@
+services:
+  timelapse:
+    build: .
+    image: timelapse_downloader:latest
+    command: ["--all", "--watch", "--no-gpu", "--status-port", "8083", "--out", "./timelapse"]
+    volumes:
+      - ./:/app
+    ports:
+      - "8083:8083"
+    restart: unless-stopped
+  nginx:
+    image: 'nginx:alpine'
+    ports:
+      - '8090:80'
+    volumes:
+      - '/home/sweenig/docker/timelapse_downloader/timelapse:/usr/share/nginx/html:ro'
+      - './default.conf:/etc/nginx/conf.d/default.conf:ro'
+  youtube:
+    build: ./youtube_clone
+    image: youtube_clone:latest
+    ports:
+      - '8091:80'
+    volumes:
+      - './timelapse:/videos:ro'
+      - './youtube_data:/data'
+    restart: unless-stopped
