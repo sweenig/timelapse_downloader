@@ -1,1 +1,7 @@
 config.json
+timelapse/*
+docker-compose.yml
+Dockerfile
+default.conf
+youtube_clone/__pycache__/*
+youtube_data/*
