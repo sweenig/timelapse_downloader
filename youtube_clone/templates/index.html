@@ -19,23 +19,27 @@
         <div id="current-duration">Duration: —</div>
         <h2 id="now-playing">No video selected</h2>
         <div id="meta-editor">
-          <h3>Video details</h3>
-          <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <h3 style="margin:0; flex:1;">Video details</h3>
+            <button id="meta-toggle" class="meta-toggle" aria-expanded="true" title="Collapse">▾</button>
+          </div>
+          <div id="meta-collapsed" class="meta-collapsed" style="display:none"></div>
+          <div class="meta-field">
             <label>Friendly name</label>
             <input id="meta-name" type="text" placeholder="Short friendly title" />
           </div>
-          <div>
+          <div class="meta-field">
             <label>Description</label>
             <textarea id="meta-desc" rows="3" placeholder="Short description"></textarea>
           </div>
-          <div>
+          <div class="meta-field">
             <label>Makerworld link</label>
             <div class="meta-link-row">
               <input id="meta-link" type="text" placeholder="https://maker.world/…" />
               <button id="meta-open" type="button">Open</button>
             </div>
           </div>
-          <div style="margin-top:8px; display:flex; gap:12px; align-items:center;">
+          <div class="meta-field" style="display:flex; gap:12px; align-items:center;">
             <button id="meta-save">Save</button>
             <span id="meta-status" class="meta-status"></span>
           </div>

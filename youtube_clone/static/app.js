@@ -153,6 +153,35 @@ function populateMeta(name){
   document.getElementById('meta-desc').value = v.description || '';
   linkInput.value = v.maker_link || '';
   updateOpenButton();
+  updateCollapsedView();
+}
+
+function updateCollapsedView(){
+  const container = document.getElementById('meta-collapsed');
+  const v = VIDEOS.find(x=>x.name===CURRENT) || {};
+  const display = v.friendly_name || CURRENT || '';
+  container.textContent = display;
+}
+
+function setCollapsed(collapsed){
+  const editor = document.getElementById('meta-editor');
+  const toggle = document.getElementById('meta-toggle');
+  if(collapsed){
+    editor.classList.add('collapsed');
+    toggle.textContent = '▸';
+    toggle.setAttribute('aria-expanded','false');
+  } else {
+    editor.classList.remove('collapsed');
+    toggle.textContent = '▾';
+    toggle.setAttribute('aria-expanded','true');
+  }
+  try{ localStorage.setItem('metaCollapsed',''+(collapsed?1:0)); }catch(e){}
+}
+
+function toggleMeta(){
+  const editor = document.getElementById('meta-editor');
+  const is = editor.classList.contains('collapsed');
+  setCollapsed(!is);
 }
 
 function updateOpenButton(){
@@ -224,4 +253,8 @@ window.addEventListener('load', ()=>{
       document.getElementById('current-duration').textContent = 'Duration: ' + formatTime(player.duration);
     }
   });
+  // initialize collapsed state
+  const collapsed = !!(localStorage.getItem('metaCollapsed') === '1');
+  setCollapsed(collapsed);
+  document.getElementById('meta-toggle').addEventListener('click', toggleMeta);
  });
