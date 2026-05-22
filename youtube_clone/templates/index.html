@@ -55,8 +55,14 @@
             <li>No videos found</li>
           {% endif %}
         </ul>
+        <div id="home-pagination" class="home-pagination" aria-label="Video list pagination">
+          <button id="home-prev" type="button">Prev</button>
+          <div id="home-page-numbers" class="home-page-numbers" aria-label="Page numbers"></div>
+          <span id="home-page-info">Page 1 of 1</span>
+          <button id="home-next" type="button">Next</button>
+        </div>
       </section>
     </main>
-    <script src="/static/home.js?v=1"></script>
+    <script src="/static/home.js?v=2"></script>
   </body>
 </html>

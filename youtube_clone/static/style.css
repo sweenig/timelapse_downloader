@@ -128,6 +128,14 @@ video#player { width: 100%; max-width: 100%; background: #000; border-radius: 8p
 .home-page #video-list li .video-thumb { width: 100%; min-width: auto; }
 .home-page #video-list li .video-info { width: 100%; }
 .home-empty { grid-column: 1 / -1; text-align: center; color: #9fb0c8; border: 1px dashed rgba(255,255,255,0.16); border-radius: 10px; padding: 14px; }
+.home-pagination { margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.home-pagination button { background: rgba(5,8,12,0.9); color: #e6eef6; border: 1px solid rgba(255,255,255,0.18); border-radius: 8px; height: 34px; padding: 0 12px; cursor: pointer; }
+.home-pagination button:disabled { opacity: 0.45; cursor: default; }
+.home-pagination span { color: #9fb0c8; font-size: 0.92rem; min-width: 170px; text-align: center; }
+.home-page-numbers { display: flex; align-items: center; gap: 6px; }
+.home-page-numbers button { min-width: 34px; padding: 0 8px; }
+.home-page-numbers button.is-current { background: rgba(83, 168, 255, 0.22); border-color: rgba(134, 197, 255, 0.6); color: #dff0ff; }
+.home-page-numbers .ellipsis { color: #9fb0c8; padding: 0 2px; user-select: none; }
 
 .home-header-center { display: flex; align-items: center; gap: 8px; flex: 1; justify-content: center; padding: 0 20px; }
 .home-header-center input,
