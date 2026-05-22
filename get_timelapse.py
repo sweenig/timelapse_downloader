@@ -211,6 +211,7 @@ def main():
     parser.add_argument('--upscale', action='store_true', help='Upscale to 1080p when creating streamable file (uses GPU if available). Off by default.')
     parser.add_argument('--keep-after-upload', action='store_true', help='Keep streamable file after Telegram upload (default: delete after upload)')
     parser.add_argument('--no-gpu', action='store_true', help='Force CPU-only processing (no NVIDIA GPU required)')
+    parser.add_argument('--codec', choices=['h264', 'hevc'], default='h264', help='Target video codec for streamable output (default: h264 for browser compatibility)')
     parser.add_argument('--speed', type=float, default=0.3, help='Adjust video speed (e.g., 0.5 for half speed, 2.0 for double speed). Default is 0.3 (slower speed).')
     parser.add_argument('--test', action='store_true', help='Run test mode: process and upload test_video.avi')
     parser.add_argument('--status-port', type=int, default=None, help='Expose an HTTP status endpoint on this port (returns JSON; 200 normally, 503 on error). Useful with --watch for external monitoring (Uptime Kuma, etc.).')
@@ -251,22 +252,43 @@ def main():
         # Adjust frame selection to maintain video quality while reducing frame count
         target_fps = max(1, original_fps * args.speed)
         
+        vf = f'fps={target_fps},scale=1920:1080'
         if args.no_gpu:
-            ffmpeg_cmd = [
-                'ffmpeg', '-y', '-i', test_video,
-                '-vf', f'fps={target_fps},scale=1920:1080',
-                '-c:v', 'libx265', '-preset', 'slow', '-b:v', '5M',
-                '-tag:v', 'hvc1', '-video_track_timescale', '90000',
-                streamable_filename
-            ]
+            if args.codec == 'h264':
+                ffmpeg_cmd = [
+                    'ffmpeg', '-y', '-i', test_video,
+                    '-vf', vf,
+                    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21',
+                    '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
+                    '-video_track_timescale', '90000',
+                    streamable_filename
+                ]
+            else:
+                ffmpeg_cmd = [
+                    'ffmpeg', '-y', '-i', test_video,
+                    '-vf', vf,
+                    '-c:v', 'libx265', '-preset', 'slow', '-b:v', '5M',
+                    '-tag:v', 'hvc1', '-video_track_timescale', '90000',
+                    streamable_filename
+                ]
         else:
-            ffmpeg_cmd = [
-                'ffmpeg', '-y', '-hwaccel', 'cuda', '-i', test_video,
-                '-vf', f'fps={target_fps}',
-                '-c:v', 'hevc_nvenc', '-preset', 'p7', '-tune', 'hq', '-b:v', '5M',
-                '-tag:v', 'hvc1', '-video_track_timescale', '90000',
-                streamable_filename
-            ]
+            if args.codec == 'h264':
+                ffmpeg_cmd = [
+                    'ffmpeg', '-y', '-hwaccel', 'cuda', '-i', test_video,
+                    '-vf', vf,
+                    '-c:v', 'h264_nvenc', '-preset', 'p5', '-cq', '23',
+                    '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
+                    '-video_track_timescale', '90000',
+                    streamable_filename
+                ]
+            else:
+                ffmpeg_cmd = [
+                    'ffmpeg', '-y', '-hwaccel', 'cuda', '-i', test_video,
+                    '-vf', vf,
+                    '-c:v', 'hevc_nvenc', '-preset', 'p7', '-tune', 'hq', '-b:v', '5M',
+                    '-tag:v', 'hvc1', '-video_track_timescale', '90000',
+                    streamable_filename
+                ]
         
         try:
             subprocess.run(ffmpeg_cmd, check=True)
@@ -441,22 +463,43 @@ def main():
                             local_filename
                         ], text=True).strip().split('/')[0])
                         target_fps = max(1, original_fps * args.speed)
+                        vf = f'fps={target_fps}{scale_filter}'
                         if args.no_gpu:
-                            ffmpeg_cmd = [
-                                'ffmpeg', '-y', '-i', local_filename,
-                                '-vf', f'fps={target_fps}{scale_filter}',
-                                '-c:v', 'libx265', '-preset', 'slow', '-b:v', '5M',
-                                '-tag:v', 'hvc1', '-video_track_timescale', '90000',
-                                streamable_filename
-                            ]
+                            if args.codec == 'h264':
+                                ffmpeg_cmd = [
+                                    'ffmpeg', '-y', '-i', local_filename,
+                                    '-vf', vf,
+                                    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21',
+                                    '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
+                                    '-video_track_timescale', '90000',
+                                    streamable_filename
+                                ]
+                            else:
+                                ffmpeg_cmd = [
+                                    'ffmpeg', '-y', '-i', local_filename,
+                                    '-vf', vf,
+                                    '-c:v', 'libx265', '-preset', 'slow', '-b:v', '5M',
+                                    '-tag:v', 'hvc1', '-video_track_timescale', '90000',
+                                    streamable_filename
+                                ]
                         else:
-                            ffmpeg_cmd = [
-                                'ffmpeg', '-y', '-hwaccel', 'cuda', '-i', local_filename,
-                                '-vf', f'fps={target_fps}{scale_filter}',
-                                '-c:v', 'hevc_nvenc', '-preset', 'p7', '-tune', 'hq', '-b:v', '5M',
-                                '-tag:v', 'hvc1', '-video_track_timescale', '90000',
-                                streamable_filename
-                            ]
+                            if args.codec == 'h264':
+                                ffmpeg_cmd = [
+                                    'ffmpeg', '-y', '-hwaccel', 'cuda', '-i', local_filename,
+                                    '-vf', vf,
+                                    '-c:v', 'h264_nvenc', '-preset', 'p5', '-cq', '23',
+                                    '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
+                                    '-video_track_timescale', '90000',
+                                    streamable_filename
+                                ]
+                            else:
+                                ffmpeg_cmd = [
+                                    'ffmpeg', '-y', '-hwaccel', 'cuda', '-i', local_filename,
+                                    '-vf', vf,
+                                    '-c:v', 'hevc_nvenc', '-preset', 'p7', '-tune', 'hq', '-b:v', '5M',
+                                    '-tag:v', 'hvc1', '-video_track_timescale', '90000',
+                                    streamable_filename
+                                ]
                         print(f'Running ffmpeg to create streamable: {streamable_filename}')
                         subprocess.run(ffmpeg_cmd, check=True)
                         print(f'Streamable file created: {streamable_filename}')

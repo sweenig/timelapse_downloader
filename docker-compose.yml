@@ -2,7 +2,7 @@ services:
   timelapse:
     build: .
     image: timelapse_downloader:latest
-    command: ["--all", "--watch", "--no-gpu", "--status-port", "8083", "--out", "./timelapse"]
+    command: ["--all", "--watch", "--no-gpu", "--codec", "h264", "--status-port", "8083", "--out", "./timelapse"]
     volumes:
       - ./:/app
     ports:

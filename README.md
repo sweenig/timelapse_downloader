@@ -84,7 +84,10 @@ python get_timelapse.py [options]
   Do **not** convert videos to streamable 1080p using ffmpeg (by default, conversion is ON).
 
 - `--no-gpu`  
-  Force CPU-only processing for video conversion (useful if you do not have an NVIDIA GPU; uses libx265 instead of hevc_nvenc).
+  Force CPU-only processing for video conversion (useful if you do not have an NVIDIA GPU).
+
+- `--codec <h264|hevc>`  
+  Target codec for streamable conversion (default: `h264` for broad browser compatibility).
 
 - `--status-port <port>`  
   Expose an HTTP status endpoint on the given port. Useful with `--watch`
@@ -122,11 +125,21 @@ Download and convert using CPU only (no NVIDIA GPU required):
 python get_timelapse.py --no-gpu
 ```
 
+Download and convert to HEVC instead of default H.264:
+```bash
+python get_timelapse.py --codec hevc
+```
+
 ---
 
 ## ffmpeg Conversion
 
-By default, after download, each video is converted to a streamable 1080p MP4 using your NVIDIA GPU. If you use `--no-gpu`, conversion will use CPU (libx265) instead.
+By default, after download, each video is converted to a browser-friendly streamable 1080p MP4 (`h264`). If you use `--codec hevc`, conversion will use HEVC instead.
+
+**Default H.264 CPU example (`--no-gpu`):**
+```bash
+ffmpeg -y -i input.mp4 -vf scale=1920:1080 -c:v libx264 -preset veryfast -crf 21 -pix_fmt yuv420p -movflags +faststart output_streamable.mp4
+```
 
 ```bash
 ffmpeg -y -hwaccel cuda -i input.mp4 -vf scale=1920:1080 -c:v hevc_nvenc -preset p7 -tune hq -b:v 15M -tag:v hvc1 -video_track_timescale 90000 output_streamable.mp4
@@ -165,6 +178,18 @@ If you want each streamable video to be uploaded automatically to a Telegram cha
 If both fields are present, every converted (streamable) video will be uploaded to your Telegram channel automatically after processing.
 
 If not set, Telegram upload is skipped.
+
+---
+
+## One-Time Existing Library H.264 Prep
+
+To pre-generate H.264 sidecars for existing non-H.264 videos (so playback is instant with no first-play transcode delay):
+
+```bash
+./transcode_existing_to_h264_once.sh ./timelapse
+```
+
+This script skips videos that are already H.264 and skips sidecars that already exist (`*_h264.mp4`).
 
 ---
 
