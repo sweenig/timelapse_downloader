@@ -3,3 +3,4 @@ timelapse/*
 default.conf
 youtube_clone/__pycache__/*
 youtube_data/*
+__pycache__/*
