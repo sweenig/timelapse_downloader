@@ -6,6 +6,51 @@
 
 A Python tool to automate downloading, upscaling, and making streamable timelapse videos from a Bambu 3D printer via FTPS.
 
+## Run As A Docker Compose Stack
+
+This repo now supports running the full workflow as a Docker Compose stack (downloader + optional web UI).
+
+Services in `docker-compose.yml`:
+
+- `timelapse`: downloads and converts timelapse videos.
+- `nginx`: simple static file browser/player (port `8090`).
+- `youtube`: richer UI clone with metadata editing, AVI conversion tools, and filtering/pagination (port `8091`).
+
+Most setups will want `timelapse` plus **one** UI service (`nginx` or `youtube`), not both.
+
+### Quick Start
+
+1. Copy `config.json_template` to `config.json` and set printer credentials.
+2. Start downloader + YouTube-style UI:
+  ```bash
+  docker compose up -d --build timelapse youtube
+  ```
+3. Or start downloader + nginx UI:
+  ```bash
+  docker compose up -d --build timelapse nginx
+  ```
+
+### Access URLs
+
+- YouTube-style UI: `http://<host>:8091`
+- nginx UI: `http://<host>:8090`
+- Timelapse watcher status endpoint: `http://<host>:8083/status`
+
+### Useful Compose Commands
+
+```bash
+# Check service status
+docker compose ps
+
+# Follow logs for a specific service
+docker compose logs -f timelapse
+docker compose logs -f youtube
+docker compose logs -f nginx
+
+# Stop everything
+docker compose down
+```
+
 ---
 
 ## Features
