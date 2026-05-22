@@ -168,6 +168,17 @@ If not set, Telegram upload is skipped.
 
 ---
 
+## Web UI AVI Catch-Up Conversion
+
+If some files remain in `.avi` format, open the web UI at `/avi` to manage conversion interactively:
+
+- View all `.avi` files currently present in the video directory.
+- Click **Convert** on an individual file.
+- Click **Convert All** to queue all remaining `.avi` files.
+- Watch per-file queue/conversion progress live from the page.
+
+---
+
 ## Notes
 
 - Ensure your printer’s FTP server is accessible and credentials are correct (set in `config.json`).

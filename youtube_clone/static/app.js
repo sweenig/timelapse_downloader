@@ -10,6 +10,26 @@ async function loadList(){
   renderList();
 }
 
+async function updateAviCount(){
+  try{
+    const res = await fetch('/api/avi-count');
+    if(!res.ok) return;
+    const { count } = await res.json();
+    const pill = document.getElementById('avi-pill');
+    pill.textContent = `${count} .avi`;
+    pill.classList.remove('avi-pill--green','avi-pill--yellow','avi-pill--red');
+    if(count <= 0){
+      pill.classList.add('avi-pill--green');
+    } else if(count === 1){
+      pill.classList.add('avi-pill--yellow');
+    } else {
+      pill.classList.add('avi-pill--red');
+    }
+  } catch (e) {
+    console.warn('Unable to load AVI count', e);
+  }
+}
+
 function renderList(){
   const sortBy = document.getElementById('sort-select').value;
   const order = document.getElementById('order-select').value;
@@ -303,6 +323,7 @@ window.addEventListener('load', ()=>{
       setPlayerSectionVisible(false);
     }
   });
+  updateAviCount();
   document.getElementById('sort-select').addEventListener('change', renderList);
   document.getElementById('order-select').addEventListener('change', renderList);
   document.getElementById('meta-save').addEventListener('click', saveMeta);

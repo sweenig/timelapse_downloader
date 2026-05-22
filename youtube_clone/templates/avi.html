@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>AVI Conversion Queue</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1><a href="/">Timelapse Tube</a></h1>
+      <div class="header-pill-container">
+        <a href="/" class="nav-link">Video Library</a>
+      </div>
+    </header>
+
+    <main class="avi-main">
+      <section class="avi-panel">
+        <div class="avi-toolbar">
+          <div>
+            <h2>AVI Files</h2>
+            <p id="avi-summary">Loading...</p>
+          </div>
+          <button id="convert-all" type="button">Convert All</button>
+        </div>
+        <div id="avi-status-banner" class="avi-status-banner"></div>
+        <ul id="avi-list" class="avi-list"></ul>
+      </section>
+    </main>
+
+    <script src="/static/avi.js?v=1"></script>
+  </body>
+</html>

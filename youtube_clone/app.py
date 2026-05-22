@@ -4,6 +4,8 @@ import json
 import mimetypes
 import re
 import subprocess
+import threading
+import time
 from datetime import datetime
 from urllib.parse import quote, unquote
 
@@ -14,10 +16,122 @@ THUMB_DIR = os.path.join(DATA_DIR, 'thumbnails')
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 
+# Conversion queue and status tracking for .avi -> mp4 jobs
+convert_queue = []
+convert_status = {}  # name -> {status: 'queued'|'running'|'success'|'error', percent:0, message:''}
+queue_lock = threading.Lock()
+
+
+def list_avi_files():
+    try:
+        files = [
+            f for f in os.listdir(VIDEO_DIR)
+            if os.path.isfile(os.path.join(VIDEO_DIR, f)) and f.lower().endswith('.avi')
+        ]
+    except Exception:
+        files = []
+    return sorted(files)
+
+
+def enqueue_conversion(name):
+    safe_name = os.path.basename(name)
+    if not safe_name.lower().endswith('.avi'):
+        return {'ok': False, 'error': 'only .avi files are supported'}
+
+    inpath = os.path.join(VIDEO_DIR, safe_name)
+    if not os.path.exists(inpath):
+        return {'ok': False, 'error': 'file not found'}
+
+    with queue_lock:
+        current = convert_status.get(safe_name, {}).get('status')
+        if safe_name in convert_queue:
+            return {'ok': True, 'queued': False, 'status': 'queued'}
+        if current == 'running':
+            return {'ok': True, 'queued': False, 'status': 'running'}
+        convert_queue.append(safe_name)
+        convert_status.setdefault(safe_name, {})
+        convert_status[safe_name].update({'status': 'queued', 'percent': 0, 'message': ''})
+
+    return {'ok': True, 'queued': True, 'status': 'queued'}
+
+
+def conversion_worker():
+    while True:
+        name = None
+        with queue_lock:
+            if convert_queue:
+                name = convert_queue.pop(0)
+        if not name:
+            time.sleep(0.5)
+            continue
+        # start conversion
+        convert_status.setdefault(name, {})
+        convert_status[name].update({'status': 'running', 'percent': 0, 'message': ''})
+        inpath = os.path.join(VIDEO_DIR, name)
+        base, _ = os.path.splitext(name)
+        outname = f"{base}_streamable.mp4"
+        outpath = os.path.join(VIDEO_DIR, outname)
+        # get duration via ffprobe
+        try:
+            probe = subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','default=noprint_wrappers=1:nokey=1', inpath], capture_output=True, text=True)
+            duration = float(probe.stdout.strip()) if probe.returncode == 0 and probe.stdout.strip() else None
+        except Exception:
+            duration = None
+        cmd = [
+            'ffmpeg', '-y',
+            '-progress', 'pipe:1', '-nostats',
+            '-i', inpath,
+            '-vf','scale=1920:1080',
+            '-c:v','libx265','-preset','slow','-b:v','15M','-tag:v','hvc1','-video_track_timescale','90000',
+            outpath
+        ]
+        try:
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            # parse progress lines from stdout
+            while True:
+                line = proc.stdout.readline()
+                if line == '' and proc.poll() is not None:
+                    break
+                if not line:
+                    time.sleep(0.05)
+                    continue
+                line = line.strip()
+                if '=' in line:
+                    k,v = line.split('=',1)
+                    if k == 'out_time_ms' and v.isdigit() and duration:
+                        out_seconds = int(v) / 1_000_000.0
+                        pct = min(100, int((out_seconds / duration) * 100)) if duration and duration > 0 else 0
+                        convert_status[name]['percent'] = pct
+                    if k == 'progress' and v == 'end':
+                        convert_status[name]['percent'] = 100
+            ret = proc.wait()
+            if ret == 0 and os.path.exists(outpath):
+                # remove original avi
+                try:
+                    os.remove(inpath)
+                except Exception:
+                    pass
+                convert_status[name].update({'status':'success','percent':100,'message':'Converted'})
+            else:
+                stderr = proc.stderr.read() if proc.stderr else ''
+                convert_status[name].update({'status':'error','message': f'ffmpeg failed: {ret} {stderr[:200]}'})
+        except Exception as e:
+            convert_status[name].update({'status':'error','message': str(e)})
+
+
+# start background worker thread
+worker_thread = threading.Thread(target=conversion_worker, daemon=True)
+worker_thread.start()
+
 
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
+@app.route('/avi')
+def avi_page():
+    return render_template('avi.html')
 
 
 @app.route('/api/videos')
@@ -66,6 +180,68 @@ def api_videos():
             videos.append(meta)
     videos.sort(key=lambda x: x['name'])
     return jsonify(videos)
+
+
+@app.route('/api/avi-count')
+def api_avi_count():
+    count = len(list_avi_files())
+    return jsonify({'count': count})
+
+
+@app.route('/api/avi-files')
+def api_avi_files():
+    avi_files = list_avi_files()
+    with queue_lock:
+        queue_snapshot = list(convert_queue)
+        status_snapshot = {k: dict(v) for k, v in convert_status.items()}
+
+    items = []
+    for name in avi_files:
+        status = status_snapshot.get(name, {}).get('status', 'idle')
+        percent = int(status_snapshot.get(name, {}).get('percent', 0) or 0)
+        message = status_snapshot.get(name, {}).get('message', '')
+        queue_position = None
+        if name in queue_snapshot:
+            status = 'queued'
+            queue_position = queue_snapshot.index(name) + 1
+        path = os.path.join(VIDEO_DIR, name)
+        try:
+            size = os.path.getsize(path)
+        except Exception:
+            size = 0
+        items.append({
+            'name': name,
+            'size': size,
+            'status': status,
+            'percent': percent,
+            'message': message,
+            'queue_position': queue_position,
+        })
+
+    return jsonify({'items': items})
+
+
+@app.route('/api/avi-convert', methods=['POST'])
+def api_avi_convert():
+    data = request.get_json() or {}
+    name = data.get('name', '')
+    result = enqueue_conversion(name)
+    status_code = 200 if result.get('ok') else 400
+    return jsonify(result), status_code
+
+
+@app.route('/api/avi-convert-all', methods=['POST'])
+def api_avi_convert_all():
+    avi_files = list_avi_files()
+    queued = 0
+    skipped = 0
+    for name in avi_files:
+        result = enqueue_conversion(name)
+        if result.get('ok') and result.get('queued'):
+            queued += 1
+        else:
+            skipped += 1
+    return jsonify({'ok': True, 'queued': queued, 'skipped': skipped, 'total': len(avi_files)})
 
 
 @app.route('/thumbnail/<path:filename>')
