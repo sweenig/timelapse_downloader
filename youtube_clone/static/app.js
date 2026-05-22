@@ -178,16 +178,19 @@ function play(name){
   lastPlayTrigger = { name, time: now };
   console.log('play()', name, 'current hidden?', document.getElementById('player-section').classList.contains('hidden'));
   setPlayerSectionVisible(true);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
   updateUrlForVideo(name);
   const player = document.getElementById('player');
   const src = document.getElementById('player-src');
   src.src = '/video/' + encodeURIComponent(name);
-  player.load();
-  player.play().then(() => {
-    console.log('player.play() succeeded for', name);
-  }).catch(err => {
-    console.warn('player.play() rejected for', name, err, 'readyState=', player.readyState, 'paused=', player.paused);
-  });
+  setTimeout(() => {
+    player.load();
+    player.play().then(() => {
+      console.log('player.play() succeeded for', name);
+    }).catch(err => {
+      console.warn('player.play() rejected for', name, err, 'readyState=', player.readyState, 'paused=', player.paused);
+    });
+  }, 300);
   const v = VIDEOS.find(x=>x.name===name) || {};
   document.getElementById('now-playing').textContent = v.friendly_name || name;
   document.getElementById('current-duration').textContent = 'Duration: —';

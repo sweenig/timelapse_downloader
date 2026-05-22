@@ -6,7 +6,13 @@ main { display: flex; gap: 20px; padding: 20px; align-items: stretch; flex: 1; m
 #player-section { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 #player-section.hidden { display: none !important; }
 video#player { width: 100%; max-width: 100%; background: #000; border-radius: 8px; box-shadow: 0 6px 24px rgba(2,6,23,0.7); }
-#list-section { width: 360px; min-height: 0; display: flex; flex-direction: column; align-self: stretch; background: linear-gradient(180deg,#0b0f14,#0f1418); padding: 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.03); overflow: visible; }
+#list-section { width: 360px; min-height: 0; display: flex; flex-direction: column; align-self: stretch; background: linear-gradient(180deg,#0b0f14,#0f1418); padding: 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.03); overflow: visible; transition: width 180ms ease; }
+#player-section.hidden + #list-section { width: auto; }
+#player-section.hidden + #list-section #video-list { display: grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap: 14px; }
+#player-section.hidden + #list-section #video-list li { border-bottom: none; }
+#player-section.hidden + #list-section #video-list li .video-row { flex-direction: column; align-items: stretch; }
+#player-section.hidden + #list-section #video-list li .video-thumb { width: 100%; min-width: auto; }
+#player-section.hidden + #list-section #video-list li .video-info { width: 100%; }
 #video-list { flex: none; min-height: 0; overflow: visible; margin-top: 8px; padding-right: 12px; }
 #video-list { scrollbar-width: thin; scrollbar-color: rgba(126,245,154,0.9) rgba(12,18,26,0.85); }
 #video-list::-webkit-scrollbar { width: 12px; }
@@ -64,4 +70,8 @@ video#player { width: 100%; max-width: 100%; background: #000; border-radius: 8p
   main { flex-direction: column; gap: 12px; }
   #player-section { width: 100%; flex: none; }
   #list-section { width: 100%; max-height: none; }
+  #player-section.hidden + #list-section #video-list { display: block; }
+  #player-section.hidden + #list-section #video-list li { border-bottom: 1px solid rgba(255,255,255,0.03); }
+  #player-section.hidden + #list-section #video-list li .video-row { flex-direction: row; }
+  #player-section.hidden + #list-section #video-list li .video-thumb { width: 140px; min-width: 140px; }
 }
