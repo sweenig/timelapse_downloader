@@ -21,6 +21,6 @@ services:
     ports:
       - '8091:80'
     volumes:
-      - './timelapse:/videos:ro'
+      - './timelapse:/videos'
       - './youtube_data:/data'
     restart: unless-stopped

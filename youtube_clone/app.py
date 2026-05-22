@@ -114,7 +114,9 @@ def conversion_worker():
                 convert_status[name].update({'status':'success','percent':100,'message':'Converted'})
             else:
                 stderr = proc.stderr.read() if proc.stderr else ''
-                convert_status[name].update({'status':'error','message': f'ffmpeg failed: {ret} {stderr[:200]}'})
+                lines = [line.strip() for line in stderr.splitlines() if line.strip()]
+                tail = ' | '.join(lines[-3:]) if lines else ''
+                convert_status[name].update({'status': 'error', 'message': f'ffmpeg failed: {ret} {tail[:500]}'.strip()})
         except Exception as e:
             convert_status[name].update({'status':'error','message': str(e)})
 
