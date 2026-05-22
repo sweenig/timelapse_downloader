@@ -1,0 +1,1 @@
+for f in *.avi; do [ -f "$f" ] || continue; out="${f%.*}_streamable.mp4"; ffmpeg -y -i "$f" -vf scale=1920:1080 -c:v libx265 -preset slow -b:v 15M -tag:v hvc1 -video_track_timescale 90000 "$out" && rm -- "$f"; done
