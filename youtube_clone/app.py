@@ -8,12 +8,14 @@ import threading
 import time
 from datetime import datetime
 from urllib.parse import quote, unquote
+from urllib.request import urlopen
 
 VIDEO_DIR = os.environ.get('VIDEO_DIR', '/videos')
 DATA_DIR = os.environ.get('DATA_DIR', '/data')
 META_FILE = os.path.join(DATA_DIR, 'metadata.json')
 THUMB_DIR = os.path.join(DATA_DIR, 'thumbnails')
 RANGE_CHUNK_SIZE = 1024 * 1024
+TIMELAPSE_STATUS_URL = os.environ.get('TIMELAPSE_STATUS_URL', 'http://timelapse:8083/status')
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 
@@ -275,6 +277,31 @@ def ensure_h264_compat(input_path):
 def api_avi_count():
     count = len(list_avi_files())
     return jsonify({'count': count})
+
+
+@app.route('/api/downloader-status')
+def api_downloader_status():
+    fallback = {
+        'state': 'unavailable',
+        'last_check': None,
+        'last_success': None,
+        'last_error': None,
+        'current_file': None,
+    }
+    try:
+        with urlopen(TIMELAPSE_STATUS_URL, timeout=2.5) as response:
+            payload = json.load(response)
+        if not isinstance(payload, dict):
+            return jsonify(fallback)
+        return jsonify({
+            'state': payload.get('state') or 'unknown',
+            'last_check': payload.get('last_check'),
+            'last_success': payload.get('last_success'),
+            'last_error': payload.get('last_error'),
+            'current_file': payload.get('current_file'),
+        })
+    except Exception:
+        return jsonify(fallback)
 
 
 @app.route('/video-h264/<path:filename>')

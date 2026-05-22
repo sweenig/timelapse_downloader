@@ -4,7 +4,7 @@ header { display: flex; align-items: center; justify-content: space-between; bac
 header h1 { margin: 0; font-weight: 600; letter-spacing: 0.5px; }
 header h1 a { color: inherit; text-decoration: none; }
 header h1 a:hover { text-decoration: underline; }
-.header-pill-container { display: flex; align-items: center; }
+.header-pill-container { display: flex; align-items: center; gap: 10px; }
 .avi-pill-link { text-decoration: none; }
 .nav-link { color: #cfe8ff; text-decoration: none; border: 1px solid rgba(255,255,255,0.2); padding: 6px 10px; border-radius: 8px; }
 .nav-link:hover { background: rgba(255,255,255,0.06); }
@@ -12,6 +12,12 @@ header h1 a:hover { text-decoration: underline; }
 .avi-pill--green { background: rgba(46, 174, 98, 0.16); color: #c6ffd4; border-color: rgba(46, 174, 98, 0.35); }
 .avi-pill--yellow { background: rgba(236, 165, 50, 0.16); color: #fff1b8; border-color: rgba(236, 165, 50, 0.35); }
 .avi-pill--red { background: rgba(239, 86, 86, 0.16); color: #ffd4d4; border-color: rgba(239, 86, 86, 0.35); }
+.downloader-pill { display: inline-flex; align-items: center; max-width: 420px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 6px 10px; border-radius: 999px; font-size: 0.82rem; font-weight: 700; border: 1px solid transparent; }
+.downloader-pill--idle { background: rgba(46, 174, 98, 0.16); color: #c6ffd4; border-color: rgba(46, 174, 98, 0.35); }
+.downloader-pill--working { background: rgba(83, 168, 255, 0.16); color: #d9ebff; border-color: rgba(83, 168, 255, 0.38); }
+.downloader-pill--starting { background: rgba(236, 165, 50, 0.16); color: #fff1b8; border-color: rgba(236, 165, 50, 0.35); }
+.downloader-pill--error { background: rgba(239, 86, 86, 0.16); color: #ffd4d4; border-color: rgba(239, 86, 86, 0.35); }
+.downloader-pill--unknown { background: rgba(132, 153, 178, 0.14); color: #cfe0f6; border-color: rgba(132, 153, 178, 0.35); }
 main { display: flex; gap: 20px; padding: 20px; align-items: stretch; flex: 1; min-height: 0; }
 #player-section { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 #player-section.hidden { display: none !important; }
