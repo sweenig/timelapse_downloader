@@ -11,4 +11,4 @@ RUN apt-get update \
 	&& rm -rf /var/lib/apt/lists/*
 COPY . .
 EXPOSE 80
-CMD ["gunicorn", "-b", "0.0.0.0:80", "app:app"]
+CMD ["gunicorn", "-b", "0.0.0.0:80", "--workers", "2", "--worker-class", "gthread", "--threads", "4", "--timeout", "180", "--graceful-timeout", "30", "--keep-alive", "5", "app:app"]

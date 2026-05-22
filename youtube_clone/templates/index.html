@@ -3,12 +3,23 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Timelapse Tube</title>
+    <title>Timelapse Tube - Home</title>
     <link rel="stylesheet" href="/static/style.css" />
   </head>
-  <body>
+  <body class="home-page">
     <header>
       <h1><a href="/">Timelapse Tube</a></h1>
+      <div class="home-header-center">
+        <input id="home-search" type="search" placeholder="Search videos" aria-label="Search videos" />
+        <select id="home-sort" aria-label="Sort videos">
+          <option value="date">Date</option>
+          <option value="name">Name</option>
+        </select>
+        <select id="home-order" aria-label="Sort order">
+          <option value="desc">Desc</option>
+          <option value="asc">Asc</option>
+        </select>
+      </div>
       <div class="header-pill-container">
         <a href="/avi" class="avi-pill-link" title="Open AVI conversion queue">
           <span id="avi-pill" class="avi-pill avi-pill--green">0 .avi</span>
@@ -16,58 +27,36 @@
       </div>
     </header>
     <main>
-      <section id="player-section" class="hidden">
-        <video id="player" controls preload="metadata" width="800">
-          <source id="player-src" src="" type="video/mp4" />
-          Your browser does not support the video tag.
-        </video>
-        <div id="current-duration">Duration: —</div>
-        <h2 id="now-playing">No video selected</h2>
-        <div id="meta-editor">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <h3 style="margin:0; flex:1;">Video details</h3>
-            <button id="meta-toggle" class="meta-toggle" aria-expanded="true" title="Collapse">▾</button>
-          </div>
-          <div id="meta-collapsed" class="meta-collapsed" style="display:none"></div>
-          <div class="meta-field">
-            <label>Friendly name</label>
-            <input id="meta-name" type="text" placeholder="Short friendly title" />
-          </div>
-          <div class="meta-field">
-            <label>Description</label>
-            <textarea id="meta-desc" rows="3" placeholder="Short description"></textarea>
-          </div>
-          <div class="meta-field">
-            <label>Makerworld link</label>
-            <div class="meta-link-row">
-              <input id="meta-link" type="text" placeholder="https://maker.world/…" />
-              <button id="meta-open" type="button">Open</button>
-            </div>
-          </div>
-          <div class="meta-field" style="display:flex; gap:12px; align-items:center;">
-            <button id="meta-save">Save</button>
-            <span id="meta-status" class="meta-status"></span>
-          </div>
-        </div>
-      </section>
-
       <section id="list-section">
         <h3>Videos</h3>
-        <div id="controls">
-          <label for="sort-select">Sort:</label>
-          <select id="sort-select">
-            <option value="name">Name</option>
-            <option value="date">Date</option>
-            <option value="size">Size</option>
-          </select>
-          <select id="order-select">
-            <option value="desc">Desc</option>
-            <option value="asc">Asc</option>
-          </select>
-        </div>
-        <ul id="video-list"></ul>
+        <ul id="video-list">
+          {% if videos %}
+            {% for v in videos %}
+              <li data-video-card="1" data-sort-name="{{ (v.friendly_name or v.name)|lower }}" data-file-name="{{ v.name|lower }}" data-search="{{ ((v.friendly_name or '') ~ ' ' ~ v.name)|lower }}" data-ts="{{ v.ts or 0 }}">
+                <a class="video-card-link" href="/watch?video={{ v.name|urlencode }}">
+                  <div class="video-row">
+                    <div class="video-thumb">
+                      <img src="{{ v.thumbnail }}" alt="{{ v.name }} thumbnail" />
+                    </div>
+                    <div class="video-info">
+                      <div class="video-title">{{ v.friendly_name or v.name }}</div>
+                      <div class="video-meta">
+                        {% if v.timestamp %}{{ v.date }} {{ v.time }}{% else %}Unknown time{% endif %}
+                        {% if v.streamable %} · streamable{% endif %}
+                        {% if v.friendly_name %} ({{ v.name }}){% endif %}
+                      </div>
+                    </div>
+                  </div>
+                </a>
+              </li>
+            {% endfor %}
+            <li id="home-empty" class="home-empty" style="display:none;">No matching videos</li>
+          {% else %}
+            <li>No videos found</li>
+          {% endif %}
+        </ul>
       </section>
     </main>
-    <script src="/static/app.js?v=3"></script>
+    <script src="/static/home.js?v=1"></script>
   </body>
 </html>

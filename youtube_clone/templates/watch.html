@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Timelapse Tube - Watch</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body class="watch-page">
+    <header>
+      <h1><a href="/">Timelapse Tube</a></h1>
+      <div class="header-pill-container">
+        <a href="/" class="nav-link">Back To Home</a>
+      </div>
+    </header>
+
+    <main class="watch-main">
+      <section id="player-section" class="watch-player-section">
+        <video id="player" controls preload="metadata" width="800">
+          Your browser does not support the video tag.
+        </video>
+        <div id="current-duration">Duration: -</div>
+        <h2 id="now-playing">No video selected</h2>
+
+        <div id="meta-editor">
+          <h3 style="margin:0;">Video details</h3>
+          <div class="meta-field">
+            <label>Friendly name</label>
+            <input id="meta-name" type="text" placeholder="Short friendly title" />
+          </div>
+          <div class="meta-field">
+            <label>Description</label>
+            <textarea id="meta-desc" rows="3" placeholder="Short description"></textarea>
+          </div>
+          <div class="meta-field">
+            <label>Makerworld link</label>
+            <div class="meta-link-row">
+              <input id="meta-link" type="text" placeholder="https://maker.world/..." />
+              <button id="meta-open" type="button">Open</button>
+            </div>
+          </div>
+          <div class="meta-field" style="display:flex; gap:12px; align-items:center;">
+            <button id="meta-save">Save</button>
+            <span id="meta-status" class="meta-status"></span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/watch.js?v=2"></script>
+  </body>
+</html>

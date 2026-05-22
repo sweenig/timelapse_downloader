@@ -1,8 +1,6 @@
-const APP_VERSION = '3';
-console.log('youtube app.js loaded; version=', APP_VERSION);
+const APP_VERSION = '5';
 let VIDEOS = [];
 let CURRENT = null;
-let lastPlayTrigger = { name: null, time: 0 };
 
 async function loadList(){
   const res = await fetch('/api/videos');
@@ -85,11 +83,6 @@ function renderList(){
     row.appendChild(thumb);
     row.appendChild(info);
     li.appendChild(row);
-    const clickHandler = () => {
-      console.log('direct li click for', v.name);
-      play(v.name);
-    };
-    li.addEventListener('click', clickHandler);
     if(CURRENT && v.name === CURRENT){
       li.classList.add('playing');
     }
@@ -181,36 +174,39 @@ function setPlayerSectionVisible(visible){
 
 function onVideoListClick(event){
   const li = event.target.closest('li[data-name]');
-  console.log('video-list click event', event.type, 'target=', event.target.tagName, 'class=', event.target.className, 'name=', li ? li.dataset.name : 'none');
   if(!li) return;
   const name = li.dataset.name;
-  console.log('video list item clicked:', name, event.type);
   play(name);
 }
 
 function play(name){
-  const now = Date.now();
-  if(lastPlayTrigger.name === name && now - lastPlayTrigger.time < 400){
-    console.log('play() ignored duplicate', name);
+  if(!name){
     return;
   }
-  console.log('play() called for', name, 'CURRENT=', CURRENT);
-  lastPlayTrigger = { name, time: now };
-  console.log('play()', name, 'current hidden?', document.getElementById('player-section').classList.contains('hidden'));
+
+  const player = document.getElementById('player');
+  const sameVideo = CURRENT === name;
+  if(sameVideo){
+    if(player.paused || player.ended){
+      player.play().catch(err => {
+        if(err && err.name === 'AbortError') return;
+        console.warn('player.play() rejected for', name, err);
+      });
+    }
+    return;
+  }
+
   setPlayerSectionVisible(true);
   window.scrollTo({ top: 0, behavior: 'smooth' });
   updateUrlForVideo(name);
-  const player = document.getElementById('player');
-  const src = document.getElementById('player-src');
-  src.src = '/video/' + encodeURIComponent(name);
-  setTimeout(() => {
-    player.load();
-    player.play().then(() => {
-      console.log('player.play() succeeded for', name);
-    }).catch(err => {
-      console.warn('player.play() rejected for', name, err, 'readyState=', player.readyState, 'paused=', player.paused);
-    });
-  }, 300);
+  player.pause();
+  player.src = '/video/' + encodeURIComponent(name);
+  player.load();
+  player.play().catch(err => {
+    // AbortError is expected when a new video replaces a pending play request.
+    if(err && err.name === 'AbortError') return;
+    console.warn('player.play() rejected for', name, err);
+  });
   const v = VIDEOS.find(x=>x.name===name) || {};
   document.getElementById('now-playing').textContent = v.friendly_name || name;
   document.getElementById('current-duration').textContent = 'Duration: —';
@@ -314,7 +310,6 @@ async function saveMeta(){
 }
 
 window.addEventListener('load', ()=>{
-  console.log('youtube app loaded; attaching listeners');
   loadList().then(()=>{
     const startVideo = getQueryVideo();
     if(startVideo && VIDEOS.some(v => v.name === startVideo)){
@@ -330,17 +325,13 @@ window.addEventListener('load', ()=>{
   document.getElementById('meta-open').addEventListener('click', openMetaLink);
   document.getElementById('meta-link').addEventListener('input', updateOpenButton);
   const videoListEl = document.getElementById('video-list');
-  console.log('video-list element found', !!videoListEl);
   videoListEl.addEventListener('click', onVideoListClick);
-  videoListEl.addEventListener('mousedown', onVideoListClick);
-  videoListEl.addEventListener('pointerdown', onVideoListClick);
   const player = document.getElementById('player');
   player.addEventListener('loadedmetadata', () => {
     if(!Number.isNaN(player.duration) && player.duration > 0){
       document.getElementById('current-duration').textContent = 'Duration: ' + formatTime(player.duration);
     }
   });
-  player.addEventListener('play', () => console.log('player event: play, CURRENT=', CURRENT));
   player.addEventListener('error', (event) => console.error('player event: error', event, player.error));
   // initialize collapsed state
   const collapsed = !!(localStorage.getItem('metaCollapsed') === '1');

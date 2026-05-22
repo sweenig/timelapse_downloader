@@ -35,6 +35,7 @@ video#player { width: 100%; max-width: 100%; background: #000; border-radius: 8p
 #video-list { list-style: none; padding: 0; margin: 0; }
 #video-list li { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.03); cursor: pointer; display:flex; flex-direction:column; gap:10px; }
 #video-list li:hover { background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00)); }
+.video-card-link { color: inherit; text-decoration: none; display: block; }
 .video-row { display:flex; gap:12px; align-items:center; }
 .video-thumb { width: 140px; min-width: 140px; }
 .video-thumb img { width: 100%; height: auto; border-radius: 8px; object-fit: cover; background: #091017; }
@@ -118,3 +119,26 @@ video#player { width: 100%; max-width: 100%; background: #000; border-radius: 8p
   .avi-item-top { flex-direction: column; align-items: stretch; }
   .avi-item button { width: 100%; }
 }
+
+.home-page main { display: block; padding: 20px; }
+.home-page #list-section { width: auto; align-self: stretch; }
+.home-page #video-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 420px)); justify-content: start; gap: 14px; }
+.home-page #video-list li { border-bottom: none; }
+.home-page #video-list li .video-row { flex-direction: column; align-items: stretch; }
+.home-page #video-list li .video-thumb { width: 100%; min-width: auto; }
+.home-page #video-list li .video-info { width: 100%; }
+.home-empty { grid-column: 1 / -1; text-align: center; color: #9fb0c8; border: 1px dashed rgba(255,255,255,0.16); border-radius: 10px; padding: 14px; }
+
+.home-header-center { display: flex; align-items: center; gap: 8px; flex: 1; justify-content: center; padding: 0 20px; }
+.home-header-center input,
+.home-header-center select { background: rgba(5,8,12,0.9); color: #e6eef6; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; height: 36px; padding: 0 10px; }
+.home-header-center input { width: min(460px, 100%); }
+
+@media (max-width: 900px){
+  .home-header-center { order: 3; width: 100%; justify-content: stretch; padding: 8px 0 0; }
+  .home-header-center input { width: 100%; }
+  .home-page header { flex-wrap: wrap; }
+}
+
+.watch-main { display: block; max-width: 980px; margin: 0 auto; width: 100%; }
+.watch-player-section { width: 100%; max-width: 100%; }

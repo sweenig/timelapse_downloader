@@ -13,6 +13,7 @@ VIDEO_DIR = os.environ.get('VIDEO_DIR', '/videos')
 DATA_DIR = os.environ.get('DATA_DIR', '/data')
 META_FILE = os.path.join(DATA_DIR, 'metadata.json')
 THUMB_DIR = os.path.join(DATA_DIR, 'thumbnails')
+RANGE_CHUNK_SIZE = 1024 * 1024
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 
@@ -31,6 +32,57 @@ def list_avi_files():
     except Exception:
         files = []
     return sorted(files)
+
+
+def list_videos():
+    try:
+        files = [f for f in os.listdir(VIDEO_DIR) if os.path.isfile(os.path.join(VIDEO_DIR, f))]
+    except Exception:
+        files = []
+    try:
+        with open(META_FILE, 'r') as mf:
+            metas = json.load(mf)
+    except Exception:
+        metas = {}
+
+    videos = []
+    for f in files:
+        if not f.lower().endswith(('.mp4', '.webm', '.ogg', '.mov', '.mkv')):
+            continue
+
+        path = os.path.join(VIDEO_DIR, f)
+        try:
+            size = os.path.getsize(path)
+        except Exception:
+            size = 0
+
+        meta = {'name': f, 'size': size}
+        m = re.match(r'^video_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})(?:_(.*))?$', os.path.splitext(f)[0])
+        if m:
+            date_part = m.group(1)
+            time_part = m.group(2).replace('-', ':')
+            rest = m.group(3) or ''
+            try:
+                dt = datetime.fromisoformat(f"{date_part}T{time_part}")
+                iso = dt.isoformat()
+                ts = int(dt.timestamp())
+            except Exception:
+                iso = None
+                ts = None
+            meta.update({'timestamp': iso, 'ts': ts, 'date': date_part, 'time': time_part, 'flags': rest})
+            meta['streamable'] = 'streamable' in rest.lower() or 'streamable' in f.lower()
+        else:
+            meta.update({'timestamp': None, 'ts': None, 'date': None, 'time': None, 'flags': ''})
+            meta['streamable'] = 'streamable' in f.lower()
+
+        saved = metas.get(f, {})
+        if saved:
+            meta.update(saved)
+        meta['thumbnail'] = '/thumbnail/' + quote(f)
+        videos.append(meta)
+
+    videos.sort(key=lambda x: x['name'])
+    return videos
 
 
 def enqueue_conversion(name):
@@ -128,7 +180,12 @@ worker_thread.start()
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', videos=list_videos())
+
+
+@app.route('/watch')
+def watch_page():
+    return render_template('watch.html')
 
 
 @app.route('/avi')
@@ -138,56 +195,72 @@ def avi_page():
 
 @app.route('/api/videos')
 def api_videos():
-    try:
-        files = [f for f in os.listdir(VIDEO_DIR) if os.path.isfile(os.path.join(VIDEO_DIR, f))]
-    except Exception:
-        files = []
-    videos = []
-    for f in files:
-        if f.lower().endswith(('.mp4', '.webm', '.ogg', '.mov', '.mkv')):
-            path = os.path.join(VIDEO_DIR, f)
-            try:
-                size = os.path.getsize(path)
-            except Exception:
-                size = 0
-            # Parse filename pattern: video_YYYY-MM-DD_HH-mm-SS_optional.mp4
-            meta = {'name': f, 'size': size}
-            m = re.match(r'^video_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})(?:_(.*))?$', os.path.splitext(f)[0])
-            if m:
-                date_part = m.group(1)
-                time_part = m.group(2).replace('-', ':')
-                rest = m.group(3) or ''
-                try:
-                    dt = datetime.fromisoformat(f"{date_part}T{time_part}")
-                    iso = dt.isoformat()
-                    ts = int(dt.timestamp())
-                except Exception:
-                    iso = None
-                    ts = None
-                meta.update({'timestamp': iso, 'ts': ts, 'date': date_part, 'time': time_part, 'flags': rest})
-                meta['streamable'] = 'streamable' in rest.lower() or 'streamable' in f.lower()
-            else:
-                meta.update({'timestamp': None, 'ts': None, 'date': None, 'time': None, 'flags': ''})
-                meta['streamable'] = 'streamable' in f.lower()
-            # merge saved metadata if available
-            try:
-                with open(META_FILE, 'r') as mf:
-                    metas = json.load(mf)
-            except Exception:
-                metas = {}
-            saved = metas.get(f, {})
-            if saved:
-                meta.update(saved)
-            meta['thumbnail'] = '/thumbnail/' + quote(f)
-            videos.append(meta)
-    videos.sort(key=lambda x: x['name'])
-    return jsonify(videos)
+    return jsonify(list_videos())
+
+
+def serve_video_path(path):
+    mime = mimetypes.guess_type(path)[0] or 'application/octet-stream'
+    file_size = os.path.getsize(path)
+    range_header = request.headers.get('Range', None)
+    if range_header:
+        m = re.search(r'bytes=(\d+)-(\d*)', range_header)
+        if m:
+            start = int(m.group(1))
+            end = m.group(2)
+            end = int(end) if end else min(start + RANGE_CHUNK_SIZE - 1, file_size - 1)
+            end = min(end, start + RANGE_CHUNK_SIZE - 1)
+            if end >= file_size:
+                end = file_size - 1
+            if start >= file_size:
+                rv = Response(status=416)
+                rv.headers['Content-Range'] = f'bytes */{file_size}'
+                return rv
+            length = end - start + 1
+            with open(path, 'rb') as f:
+                f.seek(start)
+                data = f.read(length)
+            rv = Response(data, 206, mimetype=mime)
+            rv.headers['Content-Range'] = f'bytes {start}-{end}/{file_size}'
+            rv.headers['Accept-Ranges'] = 'bytes'
+            rv.headers['Content-Length'] = str(length)
+            return rv
+    return send_file(path, mimetype=mime, as_attachment=False)
+
+
+def ensure_h264_compat(input_path):
+    base, ext = os.path.splitext(input_path)
+    if ext.lower() != '.mp4':
+        return input_path
+    output_path = base + '_h264.mp4'
+    if os.path.exists(output_path):
+        return output_path
+
+    cmd = [
+        'ffmpeg', '-y', '-i', input_path,
+        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21',
+        '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
+        output_path
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0 or not os.path.exists(output_path):
+        abort(500, description='Failed to generate H.264 compatibility file')
+    return output_path
 
 
 @app.route('/api/avi-count')
 def api_avi_count():
     count = len(list_avi_files())
     return jsonify({'count': count})
+
+
+@app.route('/video-h264/<path:filename>')
+def video_h264(filename):
+    safe_name = os.path.basename(unquote(filename))
+    input_path = os.path.join(VIDEO_DIR, safe_name)
+    if not os.path.exists(input_path):
+        abort(404)
+    compat_path = ensure_h264_compat(input_path)
+    return serve_video_path(compat_path)
 
 
 @app.route('/api/avi-files')
@@ -311,30 +384,11 @@ def save_meta():
 
 @app.route('/video/<path:filename>')
 def video(filename):
-    path = os.path.join(VIDEO_DIR, filename)
+    safe_name = os.path.basename(unquote(filename))
+    path = os.path.join(VIDEO_DIR, safe_name)
     if not os.path.exists(path):
         abort(404)
-    mime = mimetypes.guess_type(path)[0] or 'application/octet-stream'
-    file_size = os.path.getsize(path)
-    range_header = request.headers.get('Range', None)
-    if range_header:
-        m = re.search(r'bytes=(\d+)-(\d*)', range_header)
-        if m:
-            start = int(m.group(1))
-            end = m.group(2)
-            end = int(end) if end else file_size - 1
-            if end >= file_size:
-                end = file_size - 1
-            length = end - start + 1
-            with open(path, 'rb') as f:
-                f.seek(start)
-                data = f.read(length)
-            rv = Response(data, 206, mimetype=mime)
-            rv.headers['Content-Range'] = f'bytes {start}-{end}/{file_size}'
-            rv.headers['Accept-Ranges'] = 'bytes'
-            rv.headers['Content-Length'] = str(length)
-            return rv
-    return send_file(path, mimetype=mime, as_attachment=False)
+    return serve_video_path(path)
 
 
 if __name__ == '__main__':
