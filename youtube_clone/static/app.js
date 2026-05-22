@@ -1,5 +1,8 @@
+const APP_VERSION = '3';
+console.log('youtube app.js loaded; version=', APP_VERSION);
 let VIDEOS = [];
 let CURRENT = null;
+let lastPlayTrigger = { name: null, time: 0 };
 
 async function loadList(){
   const res = await fetch('/api/videos');
@@ -33,6 +36,8 @@ function renderList(){
   arr.forEach(v => {
     const li = document.createElement('li');
     li.dataset.name = v.name;
+    li.tabIndex = 0;
+    li.style.cursor = 'pointer';
     const row = document.createElement('div');
     row.className = 'video-row';
     const thumb = document.createElement('div');
@@ -60,7 +65,11 @@ function renderList(){
     row.appendChild(thumb);
     row.appendChild(info);
     li.appendChild(row);
-    li.onclick = () => play(v.name);
+    const clickHandler = () => {
+      console.log('direct li click for', v.name);
+      play(v.name);
+    };
+    li.addEventListener('click', clickHandler);
     if(CURRENT && v.name === CURRENT){
       li.classList.add('playing');
     }
@@ -132,12 +141,53 @@ function processDurationQueue(){
   next();
 }
 
+function getQueryVideo(){
+  return new URLSearchParams(window.location.search).get('video');
+}
+
+function updateUrlForVideo(name){
+  const url = new URL(window.location.href);
+  if(name){
+    url.searchParams.set('video', name);
+  } else {
+    url.searchParams.delete('video');
+  }
+  window.history.replaceState({}, '', url);
+}
+
+function setPlayerSectionVisible(visible){
+  document.getElementById('player-section').classList.toggle('hidden', !visible);
+}
+
+function onVideoListClick(event){
+  const li = event.target.closest('li[data-name]');
+  console.log('video-list click event', event.type, 'target=', event.target.tagName, 'class=', event.target.className, 'name=', li ? li.dataset.name : 'none');
+  if(!li) return;
+  const name = li.dataset.name;
+  console.log('video list item clicked:', name, event.type);
+  play(name);
+}
+
 function play(name){
+  const now = Date.now();
+  if(lastPlayTrigger.name === name && now - lastPlayTrigger.time < 400){
+    console.log('play() ignored duplicate', name);
+    return;
+  }
+  console.log('play() called for', name, 'CURRENT=', CURRENT);
+  lastPlayTrigger = { name, time: now };
+  console.log('play()', name, 'current hidden?', document.getElementById('player-section').classList.contains('hidden'));
+  setPlayerSectionVisible(true);
+  updateUrlForVideo(name);
   const player = document.getElementById('player');
   const src = document.getElementById('player-src');
   src.src = '/video/' + encodeURIComponent(name);
   player.load();
-  player.play().catch(()=>{});
+  player.play().then(() => {
+    console.log('player.play() succeeded for', name);
+  }).catch(err => {
+    console.warn('player.play() rejected for', name, err, 'readyState=', player.readyState, 'paused=', player.paused);
+  });
   const v = VIDEOS.find(x=>x.name===name) || {};
   document.getElementById('now-playing').textContent = v.friendly_name || name;
   document.getElementById('current-duration').textContent = 'Duration: —';
@@ -240,19 +290,34 @@ async function saveMeta(){
   }
 }
 
-window.addEventListener('load', ()=>{ 
-  loadList();
+window.addEventListener('load', ()=>{
+  console.log('youtube app loaded; attaching listeners');
+  loadList().then(()=>{
+    const startVideo = getQueryVideo();
+    if(startVideo && VIDEOS.some(v => v.name === startVideo)){
+      play(startVideo);
+    } else {
+      setPlayerSectionVisible(false);
+    }
+  });
   document.getElementById('sort-select').addEventListener('change', renderList);
   document.getElementById('order-select').addEventListener('change', renderList);
   document.getElementById('meta-save').addEventListener('click', saveMeta);
   document.getElementById('meta-open').addEventListener('click', openMetaLink);
   document.getElementById('meta-link').addEventListener('input', updateOpenButton);
-  document.getElementById('player').addEventListener('loadedmetadata', () => {
-    const player = document.getElementById('player');
+  const videoListEl = document.getElementById('video-list');
+  console.log('video-list element found', !!videoListEl);
+  videoListEl.addEventListener('click', onVideoListClick);
+  videoListEl.addEventListener('mousedown', onVideoListClick);
+  videoListEl.addEventListener('pointerdown', onVideoListClick);
+  const player = document.getElementById('player');
+  player.addEventListener('loadedmetadata', () => {
     if(!Number.isNaN(player.duration) && player.duration > 0){
       document.getElementById('current-duration').textContent = 'Duration: ' + formatTime(player.duration);
     }
   });
+  player.addEventListener('play', () => console.log('player event: play, CURRENT=', CURRENT));
+  player.addEventListener('error', (event) => console.error('player event: error', event, player.error));
   // initialize collapsed state
   const collapsed = !!(localStorage.getItem('metaCollapsed') === '1');
   setCollapsed(collapsed);
