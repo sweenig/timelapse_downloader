@@ -45,10 +45,17 @@ def list_videos():
     except Exception:
         metas = {}
 
+    file_set = set(files)
     videos = []
     for f in files:
         if not f.lower().endswith(('.mp4', '.webm', '.ogg', '.mov', '.mkv')):
             continue
+
+        # Hide generated H.264 sidecars when the primary source file exists.
+        if f.lower().endswith('_h264.mp4'):
+            original_name = f[:-9] + '.mp4'
+            if original_name in file_set:
+                continue
 
         path = os.path.join(VIDEO_DIR, f)
         try:
@@ -228,9 +235,26 @@ def serve_video_path(path):
 
 
 def ensure_h264_compat(input_path):
+    # Already a generated compatibility sidecar.
+    if input_path.lower().endswith('_h264.mp4'):
+        return input_path
+
     base, ext = os.path.splitext(input_path)
     if ext.lower() != '.mp4':
         return input_path
+
+    # If the source is already H.264, no sidecar is needed.
+    probe_cmd = [
+        'ffprobe', '-v', 'error',
+        '-select_streams', 'v:0',
+        '-show_entries', 'stream=codec_name',
+        '-of', 'default=noprint_wrappers=1:nokey=1',
+        input_path,
+    ]
+    probe = subprocess.run(probe_cmd, capture_output=True, text=True)
+    if probe.returncode == 0 and probe.stdout.strip() == 'h264':
+        return input_path
+
     output_path = base + '_h264.mp4'
     if os.path.exists(output_path):
         return output_path
