@@ -6,6 +6,8 @@ import re
 import subprocess
 import threading
 import time
+import uuid
+import tempfile
 from datetime import datetime
 from urllib.parse import quote, unquote
 from urllib.request import urlopen
@@ -23,6 +25,10 @@ app = Flask(__name__, static_folder='static', template_folder='templates')
 convert_queue = []
 convert_status = {}  # name -> {status: 'queued'|'running'|'success'|'error', percent:0, message:''}
 queue_lock = threading.Lock()
+
+# Merge job tracking
+merge_jobs = {}  # job_id -> {status, percent, message, output_name}
+merge_jobs_lock = threading.Lock()
 
 
 def list_avi_files():
@@ -440,6 +446,250 @@ def video(filename):
     if not os.path.exists(path):
         abort(404)
     return serve_video_path(path)
+
+
+# ── Management page ─────────────────────────────────────────────────────────
+
+@app.route('/manage')
+def manage():
+    videos = list_videos()
+    return render_template('manage.html', videos=videos)
+
+
+def _get_codec(path):
+    """Return lowercase codec name for first video stream, or empty string."""
+    result = subprocess.run(
+        ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+         '-show_entries', 'stream=codec_name',
+         '-of', 'default=noprint_wrappers=1:nokey=1', path],
+        capture_output=True, text=True
+    )
+    return result.stdout.strip().lower() if result.returncode == 0 else ''
+
+
+def _resolve_h264_source(name):
+    """
+    Return the path to a guaranteed-H.264 source for *name*.
+    Priority: original if already H.264  →  existing _h264 sidecar  →
+              call ensure_h264_compat() to build one.
+    Returns None if file not found.
+    """
+    safe = os.path.basename(name)
+    path = os.path.join(VIDEO_DIR, safe)
+    if not os.path.exists(path):
+        return None
+    if _get_codec(path) == 'h264':
+        return path
+    sidecar = os.path.splitext(path)[0] + '_h264.mp4'
+    if os.path.exists(sidecar):
+        return sidecar
+    # generate sidecar on-demand
+    return ensure_h264_compat(path)
+
+
+@app.route('/api/videos/delete', methods=['POST'])
+def delete_videos():
+    data = request.get_json() or {}
+    names = data.get('names', [])
+    if not names:
+        return jsonify({'error': 'No names provided'}), 400
+
+    deleted = []
+    errors = []
+    for name in names:
+        safe = os.path.basename(name)
+        path = os.path.join(VIDEO_DIR, safe)
+        if not os.path.exists(path):
+            errors.append(f'{safe}: not found')
+            continue
+        try:
+            os.remove(path)
+            deleted.append(safe)
+        except OSError as e:
+            errors.append(f'{safe}: {e}')
+            continue
+
+        # Clean up sidecar and thumbnail
+        sidecar = os.path.splitext(path)[0] + '_h264.mp4'
+        if os.path.exists(sidecar):
+            try:
+                os.remove(sidecar)
+            except OSError:
+                pass
+
+        thumb = os.path.join(THUMB_DIR, os.path.splitext(safe)[0] + '.jpg')
+        if os.path.exists(thumb):
+            try:
+                os.remove(thumb)
+            except OSError:
+                pass
+
+    return jsonify({'deleted': deleted, 'errors': errors})
+
+
+def _merge_worker(job_id, source_paths, output_path, output_name, delete_sources=False):
+    def update(status, percent, message):
+        with merge_jobs_lock:
+            merge_jobs[job_id].update(status=status, percent=percent, message=message)
+
+    try:
+        update('running', 5, 'Resolving H.264 sources…')
+        h264_paths = []
+        for i, src in enumerate(source_paths):
+            resolved = _resolve_h264_source(os.path.basename(src))
+            if resolved is None:
+                update('error', 0, f'Could not find source: {os.path.basename(src)}')
+                return
+            h264_paths.append(resolved)
+            update('running', 5 + int((i + 1) / len(source_paths) * 30), f'Resolved {i+1}/{len(source_paths)}…')
+
+        update('running', 35, 'Writing concat list…')
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as tmp:
+            for p in h264_paths:
+                # escape single quotes in path for ffmpeg concat format
+                escaped = p.replace("'", "'\\''")
+                tmp.write(f"file '{escaped}'\n")
+            concat_file = tmp.name
+
+        update('running', 40, 'Merging with ffmpeg…')
+        cmd = [
+            'ffmpeg', '-y', '-f', 'concat', '-safe', '0',
+            '-i', concat_file,
+            '-c', 'copy',
+            '-movflags', '+faststart',
+            output_path
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        os.unlink(concat_file)
+
+        if proc.returncode != 0:
+            update('error', 0, f'ffmpeg failed: {proc.stderr[-500:]}')
+            return
+
+        update('running', 85, 'Generating thumbnail…')
+        thumb_name = os.path.splitext(os.path.basename(output_path))[0] + '.jpg'
+        thumb_path = os.path.join(THUMB_DIR, thumb_name)
+        subprocess.run(
+            ['ffmpeg', '-y', '-i', output_path, '-ss', '00:00:02',
+             '-vframes', '1', '-q:v', '2', thumb_path],
+            capture_output=True
+        )
+
+        if delete_sources:
+            update('running', 93, 'Deleting original videos…')
+            for src in source_paths:
+                safe = os.path.basename(src)
+                src_path = os.path.join(VIDEO_DIR, safe)
+                if os.path.exists(src_path):
+                    try:
+                        os.remove(src_path)
+                    except OSError:
+                        pass
+                src_sidecar = os.path.splitext(src_path)[0] + '_h264.mp4'
+                if os.path.exists(src_sidecar):
+                    try:
+                        os.remove(src_sidecar)
+                    except OSError:
+                        pass
+                src_thumb = os.path.join(THUMB_DIR, os.path.splitext(safe)[0] + '.jpg')
+                if os.path.exists(src_thumb):
+                    try:
+                        os.remove(src_thumb)
+                    except OSError:
+                        pass
+
+        with merge_jobs_lock:
+            merge_jobs[job_id].update(
+                status='success', percent=100,
+                message='Merge complete',
+                output_name=output_name
+            )
+
+    except Exception as e:
+        with merge_jobs_lock:
+            merge_jobs[job_id].update(status='error', percent=0, message=str(e))
+
+
+@app.route('/api/videos/merge', methods=['POST'])
+def merge_videos_api():
+    data = request.get_json() or {}
+    names = data.get('names', [])
+    friendly_name = (data.get('friendly_name') or '').strip()
+    delete_sources = bool(data.get('delete_sources', True))
+
+    if len(names) < 2:
+        return jsonify({'error': 'Select at least 2 videos to merge'}), 400
+
+    # Validate all exist
+    for name in names:
+        safe = os.path.basename(name)
+        if not os.path.exists(os.path.join(VIDEO_DIR, safe)):
+            return jsonify({'error': f'File not found: {safe}'}), 404
+
+    # Sort by filename timestamp (oldest first) – reuse same pattern as list_videos
+    def ts_key(n):
+        m = re.search(r'(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})', n)
+        return m.group(1) if m else n
+
+    sorted_names = sorted(names, key=ts_key)
+
+    # Build output filename from first/last timestamp
+    first_ts = ts_key(sorted_names[0])
+    last_ts = ts_key(sorted_names[-1])
+    ts_tag = first_ts if first_ts == last_ts else f'{first_ts}_to_{last_ts}'
+    output_name = f'video_{ts_tag}_merged_streamable.mp4'
+    # Ensure uniqueness
+    base, ext = os.path.splitext(output_name)
+    counter = 1
+    candidate = output_name
+    while os.path.exists(os.path.join(VIDEO_DIR, candidate)):
+        candidate = f'{base}_{counter}{ext}'
+        counter += 1
+    output_name = candidate
+    output_path = os.path.join(VIDEO_DIR, output_name)
+
+    source_paths = [os.path.join(VIDEO_DIR, os.path.basename(n)) for n in sorted_names]
+    job_id = str(uuid.uuid4())
+
+    with merge_jobs_lock:
+        merge_jobs[job_id] = {
+            'status': 'queued', 'percent': 0,
+            'message': 'Queued', 'output_name': output_name,
+            'friendly_name': friendly_name,
+            'delete_sources': delete_sources
+        }
+
+    t = threading.Thread(target=_merge_worker,
+                         args=(job_id, source_paths, output_path, output_name, delete_sources),
+                         daemon=True)
+    t.start()
+
+    # If a friendly name was provided, write it to metadata now
+    if friendly_name:
+        try:
+            os.makedirs(DATA_DIR, exist_ok=True)
+            try:
+                with open(META_FILE, 'r') as mf:
+                    metas = json.load(mf)
+            except Exception:
+                metas = {}
+            metas[output_name] = metas.get(output_name, {})
+            metas[output_name]['friendly_name'] = friendly_name
+            with open(META_FILE, 'w') as mf:
+                json.dump(metas, mf, indent=2)
+        except Exception:
+            pass
+
+    return jsonify({'job_id': job_id, 'output_name': output_name})
+
+
+@app.route('/api/videos/merge/<job_id>', methods=['GET'])
+def merge_status(job_id):
+    with merge_jobs_lock:
+        job = merge_jobs.get(job_id)
+    if job is None:
+        return jsonify({'error': 'Unknown job'}), 404
+    return jsonify(job)
 
 
 if __name__ == '__main__':

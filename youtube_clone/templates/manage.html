@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Timelapse Tube - Manage Videos</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body class="manage-page">
+    <header>
+      <h1><a href="/">Timelapse Tube</a></h1>
+      <div class="manage-header-center">
+        <input id="manage-search" type="search" placeholder="Search videos" aria-label="Search videos" />
+        <select id="manage-sort" aria-label="Sort videos">
+          <option value="date">Date</option>
+          <option value="name">Name</option>
+        </select>
+        <select id="manage-order" aria-label="Sort order">
+          <option value="desc">Desc</option>
+          <option value="asc">Asc</option>
+        </select>
+      </div>
+      <div class="header-pill-container">
+        <span id="downloader-pill" class="downloader-pill downloader-pill--unknown">Downloader -</span>
+        <a href="/" class="nav-link">Video Library</a>
+      </div>
+    </header>
+
+    <!-- Action bar -->
+    <div id="manage-action-bar" class="manage-action-bar">
+      <label class="manage-select-all-label">
+        <input id="manage-select-all" type="checkbox" /> Select All
+      </label>
+      <span id="manage-selected-count" class="manage-selected-count">0 selected</span>
+      <div class="manage-action-buttons">
+        <button id="manage-delete-btn" class="manage-btn manage-btn--danger" disabled>Delete Selected</button>
+        <button id="manage-merge-btn" class="manage-btn manage-btn--primary" disabled>Merge Selected</button>
+      </div>
+    </div>
+
+    <main>
+      <section id="manage-list-section">
+        <ul id="manage-video-list">
+          {% if videos %}
+            {% for v in videos %}
+              <li class="manage-card"
+                  data-video-card="1"
+                  data-sort-name="{{ (v.friendly_name or v.name)|lower }}"
+                  data-file-name="{{ v.name }}"
+                  data-search="{{ ((v.friendly_name or '') ~ ' ' ~ v.name)|lower }}"
+                  data-ts="{{ v.ts or 0 }}">
+                <label class="manage-card-label">
+                  <input class="manage-checkbox" type="checkbox" data-name="{{ v.name }}" />
+                  <div class="manage-card-inner">
+                    <div class="manage-thumb">
+                      <img src="{{ v.thumbnail }}" alt="{{ v.name }} thumbnail" loading="lazy" />
+                    </div>
+                    <div class="manage-info">
+                      <div class="manage-title">{{ v.friendly_name or v.name }}</div>
+                      <div class="manage-meta">
+                        {% if v.timestamp %}{{ v.date }} {{ v.time }}{% else %}Unknown time{% endif %}
+                        {% if v.streamable %} · streamable{% endif %}
+                        {% if v.friendly_name %} · {{ v.name }}{% endif %}
+                      </div>
+                    </div>
+                  </div>
+                </label>
+              </li>
+            {% endfor %}
+            <li id="manage-empty" class="manage-empty" style="display:none;">No matching videos</li>
+          {% else %}
+            <li>No videos found</li>
+          {% endif %}
+        </ul>
+      </section>
+    </main>
+
+    <!-- Merge dialog -->
+    <div id="merge-dialog-overlay" class="dialog-overlay" style="display:none;">
+      <div class="dialog-box">
+        <h2>Merge Videos</h2>
+        <p id="merge-dialog-desc"></p>
+        <label for="merge-friendly-name">Friendly name for merged video (optional):</label>
+        <input id="merge-friendly-name" type="text" placeholder="e.g. Benchy Print" class="dialog-input" />
+        <label class="dialog-checkbox-label" for="merge-delete-originals">
+          <input id="merge-delete-originals" type="checkbox" checked />
+          Delete original videos after successful merge
+        </label>
+        <div class="dialog-actions">
+          <button id="merge-cancel-btn" class="manage-btn">Cancel</button>
+          <button id="merge-confirm-btn" class="manage-btn manage-btn--primary">Start Merge</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Merge progress dialog -->
+    <div id="merge-progress-overlay" class="dialog-overlay" style="display:none;">
+      <div class="dialog-box">
+        <h2>Merging Videos…</h2>
+        <p id="merge-progress-msg">Starting…</p>
+        <div class="merge-progress-bar-track">
+          <div id="merge-progress-bar" class="merge-progress-bar" style="width:0%"></div>
+        </div>
+        <div class="dialog-actions" id="merge-progress-actions" style="display:none;">
+          <button id="merge-done-btn" class="manage-btn manage-btn--primary">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/static/status-pill.js?v=1"></script>
+    <script src="/static/manage.js?v=1"></script>
+  </body>
+</html>
