@@ -127,26 +127,77 @@ video#player { width: 100%; max-width: 100%; background: #000; border-radius: 8p
 }
 
 .home-page main { display: block; padding: 20px; }
+.home-page { --home-header-offset: 96px; }
 .home-page #list-section { width: auto; align-self: stretch; }
 .home-page #video-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 420px)); justify-content: start; gap: 14px; }
-.home-page #video-list li { border-bottom: none; }
+.home-page #video-list li { border-bottom: none; border: 2px solid transparent; border-radius: 12px; background: rgba(11,20,32,0.8); padding: 10px; }
 .home-page #video-list li .video-row { flex-direction: column; align-items: stretch; }
 .home-page #video-list li .video-thumb { width: 100%; min-width: auto; }
 .home-page #video-list li .video-info { width: 100%; }
+.home-page .video-thumb { position: relative; overflow: hidden; border-radius: 8px; background: #091017; }
+.home-page .video-thumb .home-preview-image { display: block; transition: opacity 0.14s ease; }
+.home-page .video-thumb .home-preview-image.is-hidden { opacity: 0; }
+.home-page .video-thumb .home-preview-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s ease;
+  background: #091017;
+}
+.home-page .video-thumb .home-preview-video.is-visible { opacity: 1; }
+.home-page #video-list li.manage-card--selected { border-color: rgba(83,168,255,0.75); background: rgba(83,168,255,0.08); }
+.home-card-shell { display: flex; flex-direction: column; gap: 10px; }
+.home-manage-check-wrap { display: inline-flex; align-items: center; gap: 8px; color: #9fb0c8; font-size: 0.85rem; cursor: pointer; width: fit-content; }
+.home-manage-check-wrap input[type="checkbox"] { width: 16px; height: 16px; accent-color: #53a8ff; cursor: pointer; }
+.home-card-actions { display: flex; justify-content: flex-end; }
 .home-empty { grid-column: 1 / -1; text-align: center; color: #9fb0c8; border: 1px dashed rgba(255,255,255,0.16); border-radius: 10px; padding: 14px; }
-.home-pagination { margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; }
-.home-pagination button { background: rgba(5,8,12,0.9); color: #e6eef6; border: 1px solid rgba(255,255,255,0.18); border-radius: 8px; height: 34px; padding: 0 12px; cursor: pointer; }
-.home-pagination button:disabled { opacity: 0.45; cursor: default; }
-.home-pagination span { color: #9fb0c8; font-size: 0.92rem; min-width: 170px; text-align: center; }
-.home-page-numbers { display: flex; align-items: center; gap: 6px; }
-.home-page-numbers button { min-width: 34px; padding: 0 8px; }
-.home-page-numbers button.is-current { background: rgba(83, 168, 255, 0.22); border-color: rgba(134, 197, 255, 0.6); color: #dff0ff; }
-.home-page-numbers .ellipsis { color: #9fb0c8; padding: 0 2px; user-select: none; }
+.home-infinite-status { margin-top: 14px; color: #9fb0c8; font-size: 0.92rem; text-align: center; min-height: 22px; }
+.home-infinite-sentinel { width: 100%; height: 1px; }
 
 .home-header-center { display: flex; align-items: center; gap: 8px; flex: 1; justify-content: center; padding: 0 20px; }
 .home-header-center input,
 .home-header-center select { background: rgba(5,8,12,0.9); color: #e6eef6; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; height: 36px; padding: 0 10px; }
 .home-header-center input { width: min(460px, 100%); }
+.home-select-all-label { display: flex; align-items: center; gap: 6px; cursor: pointer; color: #9fb0c8; font-size: 0.93rem; }
+.home-select-all-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: #53a8ff; }
+.home-selected-count { color: #9fb0c8; font-size: 0.9rem; min-width: 80px; }
+.home-page header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  box-sizing: border-box;
+  z-index: 40;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.home-page main {
+  padding-top: calc(20px + var(--home-header-offset));
+}
+
+.home-page .header-pill-container {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.home-page .header-pill-container .manage-btn {
+  height: 34px;
+  padding: 6px 12px;
+}
+
+.dialog-textarea {
+  min-height: 92px;
+  height: auto;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  resize: vertical;
+}
 
 @media (max-width: 900px){
   .home-header-center { order: 3; width: 100%; justify-content: stretch; padding: 8px 0 0; }

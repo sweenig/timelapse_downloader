@@ -22,34 +22,51 @@
       </div>
       <div class="header-pill-container">
         <span id="downloader-pill" class="downloader-pill downloader-pill--unknown">Downloader -</span>
-        <a href="/manage" class="nav-link">Manage Videos</a>
+        <label class="home-select-all-label">
+          <input id="home-select-all" type="checkbox" /> Select Page
+        </label>
+        <span id="home-selected-count" class="home-selected-count">0 selected</span>
+        <button id="home-edit-meta-btn" class="manage-btn" disabled>Edit Metadata</button>
+        <button id="home-delete-btn" class="manage-btn manage-btn--danger" disabled>Delete Selected</button>
+        <button id="home-merge-btn" class="manage-btn manage-btn--primary" disabled>Merge Selected</button>
         <a href="/avi" class="avi-pill-link" title="Open AVI conversion queue">
           <span id="avi-pill" class="avi-pill avi-pill--green">0 .avi</span>
         </a>
       </div>
     </header>
+
     <main>
       <section id="list-section">
         <h3>Videos</h3>
         <ul id="video-list">
           {% if videos %}
             {% for v in videos %}
-              <li data-video-card="1" data-sort-name="{{ (v.friendly_name or v.name)|lower }}" data-file-name="{{ v.name|lower }}" data-search="{{ ((v.friendly_name or '') ~ ' ' ~ v.name)|lower }}" data-ts="{{ v.ts or 0 }}">
-                <a class="video-card-link" href="/watch?video={{ v.name|urlencode }}">
-                  <div class="video-row">
-                    <div class="video-thumb">
-                      <img src="{{ v.thumbnail }}" alt="{{ v.name }} thumbnail" />
-                    </div>
-                    <div class="video-info">
-                      <div class="video-title">{{ v.friendly_name or v.name }}</div>
-                      <div class="video-meta">
-                        {% if v.timestamp %}{{ v.date }} {{ v.time }}{% else %}Unknown time{% endif %}
-                        {% if v.streamable %} · streamable{% endif %}
-                        {% if v.friendly_name %} ({{ v.name }}){% endif %}
+              <li data-video-card="1" data-sort-name="{{ (v.friendly_name or v.name)|lower }}" data-file-name="{{ v.name }}" data-search="{{ ((v.friendly_name or '') ~ ' ' ~ v.name)|lower }}" data-ts="{{ v.ts or 0 }}" data-friendly-name="{{ (v.friendly_name or '')|e }}" data-description="{{ (v.description or '')|e }}" data-maker-link="{{ (v.maker_link or '')|e }}">
+                <div class="home-card-shell">
+                  <label class="home-manage-check-wrap" for="home-select-{{ loop.index }}">
+                    <input id="home-select-{{ loop.index }}" class="home-manage-checkbox" type="checkbox" data-name="{{ v.name }}" />
+                    Select
+                  </label>
+                  <a class="video-card-link" href="/watch?video={{ v.name|urlencode }}">
+                    <div class="video-row">
+                      <div class="video-thumb">
+                        <img class="home-preview-image" src="{{ v.thumbnail }}" alt="{{ v.name }} thumbnail" />
+                        <video class="home-preview-video" muted loop playsinline preload="none"></video>
+                      </div>
+                      <div class="video-info">
+                        <div class="video-title">{{ v.friendly_name or v.name }}</div>
+                        <div class="video-meta">
+                          {% if v.timestamp %}{{ v.date }} {{ v.time }}{% else %}Unknown time{% endif %}
+                          {% if v.streamable %} · streamable{% endif %}
+                          <span class="video-file-name-extra"{% if not v.friendly_name %} style="display:none;"{% endif %}> ({{ v.name }})</span>
+                        </div>
                       </div>
                     </div>
+                  </a>
+                  <div class="home-card-actions">
+                    <button class="home-edit-btn manage-btn" type="button" data-name="{{ v.name }}">Edit Metadata</button>
                   </div>
-                </a>
+                </div>
               </li>
             {% endfor %}
             <li id="home-empty" class="home-empty" style="display:none;">No matching videos</li>
@@ -57,15 +74,60 @@
             <li>No videos found</li>
           {% endif %}
         </ul>
-        <div id="home-pagination" class="home-pagination" aria-label="Video list pagination">
-          <button id="home-prev" type="button">Prev</button>
-          <div id="home-page-numbers" class="home-page-numbers" aria-label="Page numbers"></div>
-          <span id="home-page-info">Page 1 of 1</span>
-          <button id="home-next" type="button">Next</button>
-        </div>
+        <div id="home-infinite-status" class="home-infinite-status" aria-live="polite"></div>
+        <div id="home-infinite-sentinel" class="home-infinite-sentinel" aria-hidden="true"></div>
       </section>
     </main>
+
+    <div id="meta-dialog-overlay" class="dialog-overlay" style="display:none;">
+      <div class="dialog-box">
+        <h2>Edit Metadata</h2>
+        <p id="meta-dialog-desc"></p>
+        <label for="home-meta-name">Friendly name</label>
+        <input id="home-meta-name" type="text" class="dialog-input" placeholder="Short friendly title" />
+        <label for="home-meta-desc">Description</label>
+        <textarea id="home-meta-desc" class="dialog-input dialog-textarea" rows="3" placeholder="Short description"></textarea>
+        <label for="home-meta-link">Makerworld link</label>
+        <input id="home-meta-link" type="text" class="dialog-input" placeholder="https://maker.world/..." />
+        <div class="dialog-actions">
+          <span id="home-meta-status" class="meta-status"></span>
+          <button id="home-meta-cancel-btn" class="manage-btn" type="button">Cancel</button>
+          <button id="home-meta-save-btn" class="manage-btn manage-btn--primary" type="button">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="merge-dialog-overlay" class="dialog-overlay" style="display:none;">
+      <div class="dialog-box">
+        <h2>Merge Videos</h2>
+        <p id="merge-dialog-desc"></p>
+        <label for="merge-friendly-name">Friendly name for merged video (optional):</label>
+        <input id="merge-friendly-name" type="text" placeholder="e.g. Benchy Print" class="dialog-input" />
+        <label class="dialog-checkbox-label" for="merge-delete-originals">
+          <input id="merge-delete-originals" type="checkbox" checked />
+          Delete original videos after successful merge
+        </label>
+        <div class="dialog-actions">
+          <button id="merge-cancel-btn" class="manage-btn" type="button">Cancel</button>
+          <button id="merge-confirm-btn" class="manage-btn manage-btn--primary" type="button">Start Merge</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="merge-progress-overlay" class="dialog-overlay" style="display:none;">
+      <div class="dialog-box">
+        <h2>Merging Videos...</h2>
+        <p id="merge-progress-msg">Starting...</p>
+        <div class="merge-progress-bar-track">
+          <div id="merge-progress-bar" class="merge-progress-bar" style="width:0%"></div>
+        </div>
+        <div class="dialog-actions" id="merge-progress-actions" style="display:none;">
+          <button id="merge-done-btn" class="manage-btn manage-btn--primary" type="button">Done</button>
+        </div>
+      </div>
+    </div>
+
     <script src="/static/status-pill.js?v=1"></script>
-    <script src="/static/home.js?v=2"></script>
+    <script src="/static/home.js?v=3"></script>
   </body>
 </html>

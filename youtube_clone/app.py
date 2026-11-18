@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request, send_file, Response, abort
+from flask import Flask, render_template, jsonify, request, send_file, Response, abort, redirect
 import os
 import json
 import mimetypes
@@ -452,8 +452,7 @@ def video(filename):
 
 @app.route('/manage')
 def manage():
-    videos = list_videos()
-    return render_template('manage.html', videos=videos)
+    return redirect('/')
 
 
 def _get_codec(path):
